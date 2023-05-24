@@ -1,0 +1,90 @@
+- name: deploy node
+  hosts: all, localhost
+  become: yes
+
+  tasks:
+    - name: Ping
+      ansible.builtin.ping:
+
+    - name: Install required Packages
+      ansible.builtin.package:
+        name:
+          - net-tools
+          - git
+          - curl
+          - mc
+          - openssh-server
+          - gnupg
+        state: present
+
+    - name: Add sury.org repo
+      block:
+        - name: sury repo | no apt key
+          ansible.builtin.get_url:
+            url: https://packages.sury.org/php/apt.gpg
+            dest: /etc/apt/trusted.gpg.d/php.gpg
+
+        - name: sury repo | apt source
+          ansible.builtin.apt_repository:
+            repo: "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/php.gpg] https://packages.sury.org/php/ {{ ansible_distribution_release }} main"
+            state: present
+
+    - name: Install apache webserver
+      ansible.builtin.package:
+        name:
+          - apache2
+        state: present
+
+    - name: Disable autoindex module in apache
+      community.general.apache2_module:
+        state: absent
+        name: autoindex
+        force: true
+
+    - name: Install php 5.6
+      ansible.builtin.package:
+        name:
+          - php5.6
+          - php5.6-cli
+        state: present
+
+    - name: Install php 5.6 modules
+      ansible.builtin.package:
+        name:
+          - php5.6-apcu
+          - php5.6-bcmath
+          - php5.6-curl
+          - php5.6-gd
+          - php5.6-imap
+          - php5.6-json
+          - php5.6-mbstring
+          - php5.6-mcrypt
+          - php5.6-mysql
+          - php5.6-odbc
+          - php5.6-pgsql
+          - php5.6-ps
+          - php5.6-soap
+          - php5.6-sqlite3
+          - php5.6-xml
+          - php5.6-xmlrpc
+          - php5.6-xsl
+          - php5.6-zip
+        state: present
+
+    - name: Remove default index.html
+      ansible.builtin.file:
+       path: /var/www/html/index.html
+       state: absent
+
+    - name: Copy file with owner and permissions
+      ansible.builtin.copy:
+        src: ./files/var/www/html/index.php
+        dest: /var/www/html/index.php
+        owner: www-data
+        group: www-data
+        mode: '0644'
+
+    - name: Make sure a apache is running
+      ansible.builtin.systemd:
+        state: started
+        name: apache2
